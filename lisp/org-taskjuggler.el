@@ -397,31 +397,33 @@ a path to the current task."
   "Figure out if each task is a leaf by looking at it's level,
 and the level of its successor. If the successor is higher (ie
 deeper), then it's not a leaf."
-  (cond
-   ((null tasks) nil)
-   ;; if a task has no successors it is a leaf
-   ((null (car (cdr tasks)))
-    (cons (cons (cons "leaf-node" t) (car tasks)) 
-	  (org-taskjuggler-compute-task-leafiness (cdr tasks))))
-   ;; if the successor has a lower level than task it is a leaf
-   ((<= (cdr (assoc "level" (car (cdr tasks)))) (cdr (assoc "level" (car tasks)))) 
-    (cons (cons (cons "leaf-node" t) (car tasks)) 
-	  (org-taskjuggler-compute-task-leafiness (cdr tasks))))
-   ;; otherwise examine the rest of the tasks
-   (t (cons (car tasks) (org-taskjuggler-compute-task-leafiness (cdr tasks))))))
+  (let (new-list)
+    (while (car tasks)
+      (let ((task (car tasks))
+	    (successor (car (cdr tasks))))
+	(cond
+	 ;; if a task has no successors it is a leaf
+	 ((null successor) 
+	  (push (cons (cons "leaf-node" t) task) new-list))
+	 ;; if the successor has a lower level than task it is a leaf
+	 ((<= (cdr (assoc "level" successor)) (cdr (assoc "level" task))) 
+	  (push (cons (cons "leaf-node" t) task) new-list))
+	 ;; otherwise examine the rest of the tasks
+	 (t (push task new-list))))
+      (setq tasks (cdr tasks)))
+    (print new-list)
+    (nreverse new-list)))
 
-(defun org-taskjuggler-assign-resource-ids (resources &optional unique-ids)
+(defun org-taskjuggler-assign-resource-ids (resources)
   "Given a list of resources return the same list, assigning a
 unique id to each resource."
-  (cond
-   ((null resources) nil)
-   (t 
-    (let* ((resource (car resources))
-	   (unique-id (org-taskjuggler-get-unique-id resource unique-ids)))
-      (push (cons "unique-id" unique-id) resource)
-      (cons resource 
-	    (org-taskjuggler-assign-resource-ids (cdr resources) 
-						 (cons unique-id unique-ids)))))))
+  (let (unique-ids new-list)
+    (dolist (resource resources new-list)
+      (let ((unique-id (org-taskjuggler-get-unique-id resource unique-ids)))
+	(push (cons "unique-id" unique-id) resource)
+	(push unique-id unique-ids)
+	(push resource new-list)))
+    (nreverse new-list)))
 
 (defun org-taskjuggler-resolve-dependencies (tasks)
   (let ((previous-level 0)
